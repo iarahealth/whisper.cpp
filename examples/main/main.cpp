@@ -894,6 +894,25 @@ int main(int argc, char ** argv) {
     whisper_ctx_init_openvino_encoder(ctx, nullptr, params.openvino_encode_device.c_str(), nullptr);
 
     for (int f = 0; f < (int) params.fname_inp.size(); ++f) {
+        bool convert_to_wav = false;
+
+        // If fname_inp ends with .ogg, convert it to WAV using ffmpeg
+        // There's probably a better way to do this, but ffmpeg is simple and fast anyways
+        auto fname_inp_tmp = params.fname_inp[f];
+        if (fname_inp_tmp.size() > 4 && fname_inp_tmp.substr(fname_inp_tmp.size() - 4) == ".ogg") {
+            // Replace .ogg with .wav
+            const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
+            const std::string cmd = "ffmpeg -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
+            fprintf(stderr, "%s: converting '%s' to WAV using ffmpeg ...\n", __func__, fname_inp_tmp.c_str());
+            if (system(cmd.c_str()) != 0) {
+                fprintf(stderr, "%s: failed to convert '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
+                continue;
+            }
+            fprintf(stderr, "%s: converted '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
+            params.fname_inp[f] = fname_inp_wav;
+            convert_to_wav = true;
+        }
+
         const auto fname_inp = params.fname_inp[f];
 		const auto fname_out = f < (int) params.fname_out.size() && !params.fname_out[f].empty() ? params.fname_out[f] : params.fname_inp[f];
 
@@ -903,6 +922,16 @@ int main(int argc, char ** argv) {
         if (!::read_wav(fname_inp, pcmf32, pcmf32s, params.diarize)) {
             fprintf(stderr, "error: failed to read WAV file '%s'\n", fname_inp.c_str());
             continue;
+        }
+
+        // Remove the WAV file if it was converted from an OGG file
+        if (convert_to_wav) {
+            const std::string cmd = "rm -f " + fname_inp;
+            fprintf(stderr, "%s: removing '%s' ...\n", __func__, fname_inp.c_str());
+            if (system(cmd.c_str()) != 0) {
+                fprintf(stderr, "%s: failed to remove '%s'\n", __func__, fname_inp.c_str());
+            }
+            fprintf(stderr, "%s: removed '%s'\n", __func__, fname_inp.c_str());
         }
 
         // print system information
