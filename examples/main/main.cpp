@@ -988,12 +988,10 @@ int main(int argc, char ** argv) {
             // Replace .ogg with .wav
             const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
             const std::string cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
-            fprintf(stderr, "%s: converting '%s' to WAV using ffmpeg ...\n", __func__, fname_inp_tmp.c_str());
             if (system(cmd.c_str()) != 0) {
                 fprintf(stderr, "%s: failed to convert '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
                 continue;
             }
-            fprintf(stderr, "%s: converted '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
             params.fname_inp[f] = fname_inp_wav;
             convert_to_wav = true;
         }
@@ -1012,11 +1010,9 @@ int main(int argc, char ** argv) {
         // Remove the WAV file if it was converted from an OGG file
         if (convert_to_wav) {
             const std::string cmd = "rm -f " + fname_inp;
-            fprintf(stderr, "%s: removing '%s' ...\n", __func__, fname_inp.c_str());
             if (system(cmd.c_str()) != 0) {
                 fprintf(stderr, "%s: failed to remove '%s'\n", __func__, fname_inp.c_str());
             }
-            fprintf(stderr, "%s: removed '%s'\n", __func__, fname_inp.c_str());
         }
 
         // print system information
