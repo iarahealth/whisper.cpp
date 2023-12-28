@@ -4,6 +4,8 @@
 
 #include <cmath>
 #include <fstream>
+#include <sstream>
+#include <iostream>
 #include <cstdio>
 #include <string>
 #include <thread>
@@ -104,6 +106,8 @@ struct whisper_params {
 
     std::vector<std::string> fname_inp = {};
     std::vector<std::string> fname_out = {};
+    std::string csv_file;
+    std::string output_jsn_iara;
 };
 
 void whisper_print_usage(int argc, char ** argv, const whisper_params & params);
@@ -153,6 +157,7 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (arg == "-fp"   || arg == "--font-path")       { params.font_path       = argv[++i]; }
         else if (arg == "-ocsv" || arg == "--output-csv")      { params.output_csv      = true; }
         else if (arg == "-oj"   || arg == "--output-json")     { params.output_jsn      = true; }
+        else if (arg == "-oji"  || arg == "--output-json-iara"){ params.output_jsn_iara = argv[++i]; }
         else if (arg == "-ojf"  || arg == "--output-json-full"){ params.output_jsn_full = params.output_jsn = true; }
         else if (arg == "-of"   || arg == "--output-file")     { params.fname_out.emplace_back(argv[++i]); }
         else if (arg == "-ps"   || arg == "--print-special")   { params.print_special   = true; }
@@ -164,6 +169,7 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (                  arg == "--prompt")          { params.prompt          = argv[++i]; }
         else if (arg == "-m"    || arg == "--model")           { params.model           = argv[++i]; }
         else if (arg == "-f"    || arg == "--file")            { params.fname_inp.emplace_back(argv[++i]); }
+        else if (arg == "-csv"  || arg == "--csv-file")        { params.csv_file = argv[++i]; }
         else if (arg == "-oved" || arg == "--ov-e-device")     { params.openvino_encode_device = argv[++i]; }
         else if (arg == "-ls"   || arg == "--log-score")       { params.log_score       = true; }
         else if (arg == "-ng"   || arg == "--no-gpu")          { params.use_gpu         = false; }
@@ -210,6 +216,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -fp,       --font-path         [%-7s] path to a monospace font for karaoke video\n",     params.font_path.c_str());
     fprintf(stderr, "  -ocsv,     --output-csv        [%-7s] output result in a CSV file\n",                    params.output_csv ? "true" : "false");
     fprintf(stderr, "  -oj,       --output-json       [%-7s] output result in a JSON file\n",                   params.output_jsn ? "true" : "false");
+    fprintf(stderr, "  -oji,      --output-json-iara  [%-7s] output result path in JSON (Iara)\n",              params.output_jsn_iara.c_str());
     fprintf(stderr, "  -ojf,      --output-json-full  [%-7s] include more information in the JSON file\n",      params.output_jsn_full ? "true" : "false");
     fprintf(stderr, "  -of FNAME, --output-file FNAME [%-7s] output file path (without file extension)\n",      "");
     fprintf(stderr, "  -ps,       --print-special     [%-7s] print special tokens\n",                           params.print_special ? "true" : "false");
@@ -221,6 +228,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "             --prompt PROMPT     [%-7s] initial prompt\n",                                 params.prompt.c_str());
     fprintf(stderr, "  -m FNAME,  --model FNAME       [%-7s] model path\n",                                     params.model.c_str());
     fprintf(stderr, "  -f FNAME,  --file FNAME        [%-7s] input WAV file path\n",                            "");
+    fprintf(stderr, "  -csv FNAME,--csv-file FNAME    [%-7s] input CSV file path\n",                            params.csv_file.c_str());
     fprintf(stderr, "  -oved D,   --ov-e-device DNAME [%-7s] the OpenVINO device used for encode inference\n",  params.openvino_encode_device.c_str());
     fprintf(stderr, "  -ls,       --log-score         [%-7s] log best decoder scores of tokens\n",              params.log_score?"true":"false");
     fprintf(stderr, "  -ng,       --no-gpu            [%-7s] disable GPU\n",                                    params.use_gpu ? "false" : "true");
@@ -852,6 +860,70 @@ bool output_lrc(struct whisper_context * ctx, const char * fname, const whisper_
     return true;
 }
 
+std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
+    // Read a csv file and return a vector where each element is a vector of [wav_filename, transcript, id, profile_id]
+    std::vector<std::vector<std::string>> csv_data;
+    std::ifstream csv(csv_file);
+    if (!csv.is_open()) {
+        fprintf(stderr, "%s: failed to open '%s' for reading\n", __func__, csv_file.c_str());
+        return csv_data;
+    }
+
+    // Skip the header
+    std::string header;
+    std::getline(csv, header);
+
+    // Read each line and extract values
+    std::string line;
+    while (std::getline(csv, line)) {
+        std::stringstream ss(line);
+        std::string wav_filename, id, profile_id, duration, wav_filesize, transcript;
+
+        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript
+        std::getline(ss, wav_filename, ',');
+        std::getline(ss, id, ',');
+        std::getline(ss, profile_id, ',');
+        std::getline(ss, duration, ',');
+        std::getline(ss, wav_filesize, ',');
+        std::getline(ss, transcript, ',');
+
+        std::vector<std::string> row = {wav_filename, transcript, id, profile_id};
+        csv_data.push_back(row);
+    }
+
+    return csv_data;
+}
+
+std::string remove_leading_trailing_whitespace(const std::string& input) {
+    // Remove leading whitespace
+    size_t start = input.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) {
+        // The string is all whitespace
+        return "";
+    }
+
+    // Remove trailing whitespace
+    size_t end = input.find_last_not_of(" \t\r\n");
+    return input.substr(start, end - start + 1);
+}
+
+std::string join_segments(struct whisper_context * ctx) {
+    const int n_segments = whisper_full_n_segments(ctx);
+    std::string text;
+
+    for (int i = 0; i < n_segments; ++i) {
+        const char * segment_text = whisper_full_get_segment_text(ctx, i);
+
+        if (i > 0) {
+            text += " ";
+        }
+
+        text += remove_leading_trailing_whitespace(segment_text);
+    }
+
+    return text;
+}
+
 int main(int argc, char ** argv) {
     whisper_params params;
 
@@ -860,7 +932,7 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
-    if (params.fname_inp.empty()) {
+    if (params.fname_inp.empty() && params.csv_file.empty()) {
         fprintf(stderr, "error: no input files specified\n");
         whisper_print_usage(argc, argv, params);
         return 2;
@@ -893,6 +965,19 @@ int main(int argc, char ** argv) {
     // initialize openvino encoder. this has no effect on whisper.cpp builds that don't have OpenVINO configured
     whisper_ctx_init_openvino_encoder(ctx, nullptr, params.openvino_encode_device.c_str(), nullptr);
 
+    std::vector<std::string> results;
+
+    std::vector<std::vector<std::string>> csv_data;
+    if (params.csv_file != "") {
+        fprintf(stderr, "%s: csv file: %s\n", __func__, params.csv_file.c_str());
+        csv_data = read_csv(params.csv_file.c_str());
+        // [wav_filename, transcript, id, profile_id]
+        for (const auto &element : csv_data) {
+            std::cout << element[0] << " ";
+            params.fname_inp.push_back(element[0]);
+        }
+    }
+
     for (int f = 0; f < (int) params.fname_inp.size(); ++f) {
         bool convert_to_wav = false;
 
@@ -902,7 +987,7 @@ int main(int argc, char ** argv) {
         if (fname_inp_tmp.size() > 4 && fname_inp_tmp.substr(fname_inp_tmp.size() - 4) == ".ogg") {
             // Replace .ogg with .wav
             const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
-            const std::string cmd = "ffmpeg -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
+            const std::string cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
             fprintf(stderr, "%s: converting '%s' to WAV using ffmpeg ...\n", __func__, fname_inp_tmp.c_str());
             if (system(cmd.c_str()) != 0) {
                 fprintf(stderr, "%s: failed to convert '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
@@ -1046,6 +1131,9 @@ int main(int argc, char ** argv) {
             }
         }
 
+        std::string text = join_segments(ctx);
+        results.push_back(text);
+
         // output stuff
         {
             printf("\n");
@@ -1098,6 +1186,35 @@ int main(int argc, char ** argv) {
                 output_score(ctx, fname_score.c_str(), params, pcmf32s);
             }
         }
+    }
+
+    if (params.output_jsn_iara != "" && params.csv_file != "") {
+        std::ofstream fout(params.output_jsn_iara, std::ios_base::app);
+        if (!fout.is_open()) {
+            fprintf(stderr, "%s: failed to open '%s' for writing\n", __func__, params.output_jsn_iara.c_str());
+            return false;
+        }
+        fout << "[\n";
+        for (int i = 0; i < static_cast<int>(results.size()); ++i) {
+            std::string result = remove_leading_trailing_whitespace(results[i]);
+            std::string transcript = csv_data[i][1];
+            std::string id = csv_data[i][2];
+            std::string profile_id = csv_data[i][3];
+
+            fout << "    {\n";
+            fout << "        \"prd\": \"" << result << "\",\n";
+            fout << "        \"tgt\": \"" << transcript << "\",\n";
+            fout << "        \"id\": \"" << id << "\",\n";
+            fout << "        \"profile_id\": \"" << profile_id << "\"\n";
+            if (i == static_cast<int>(results.size()) - 1) {
+                fout << "    }\n";
+            } else {
+                fout << "    },\n";
+            }
+        }
+        fout << "]";
+
+        fout.close(); // Close the file after writing
     }
 
     whisper_print_timings(ctx);
