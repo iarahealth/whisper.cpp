@@ -4339,6 +4339,7 @@ struct whisper_full_params whisper_full_default_params(enum whisper_sampling_str
 
         /*.suppress_blank    =*/ true,
         /*.suppress_non_speech_tokens =*/ false,
+        /*.suppress_tokens =*/ false,
 
         /*.temperature       =*/  0.0f,
         /*.max_initial_ts    =*/  1.0f,
@@ -4477,6 +4478,14 @@ static const std::vector<std::string> non_speech_tokens = {
     "♪♪♪","♩", "♪", "♫", "♬", "♭", "♮", "♯"
 };
 
+
+static const std::vector<std::string> iara_tokens = {
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "%", "&", "$", "€", ".", ",", "?", "¿", "!", "¡",
+    "-", "..."
+};
+
+
 // process the logits for the selected decoder
 // - applies logit filters
 // - computes logprobs and probs
@@ -4560,6 +4569,19 @@ static void whisper_process_logits(
 
         if (params.logits_filter_callback) {
             params.logits_filter_callback(&ctx, &state, tokens_cur.data(), tokens_cur.size(), logits.data(), params.logits_filter_callback_user_data);
+        }
+
+        // suppress iara_tokens
+        if (params.suppress_tokens) {
+            for (const std::string & token : iara_tokens) {
+                const std::string suppress_tokens[] = {token, " " + token};
+                for (const std::string & suppress_token : suppress_tokens) {
+                    if (vocab.token_to_id.find(suppress_token) != vocab.token_to_id.end()) {
+                        logits[vocab.token_to_id.at(suppress_token)] = -INFINITY;
+                    }
+                }
+            }
+            // note that we only forcefully suppress single numeral tokens -- for now, we'll trust the fine-tuning will take care of the rest
         }
 
         // suppress non-speech tokens
