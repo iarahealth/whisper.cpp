@@ -2,6 +2,7 @@
 
 #include "whisper.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <sstream>
@@ -1190,7 +1191,7 @@ int main(int argc, char ** argv) {
     }
 
     if (params.output_jsn_iara != "" && params.csv_file != "") {
-        std::ofstream fout(params.output_jsn_iara, std::ios_base::app);
+        std::ofstream fout(params.output_jsn_iara);
         if (!fout.is_open()) {
             fprintf(stderr, "%s: failed to open '%s' for writing\n", __func__, params.output_jsn_iara.c_str());
             return false;
@@ -1198,6 +1199,8 @@ int main(int argc, char ** argv) {
         fout << "[\n";
         for (int i = 0; i < static_cast<int>(results.size()); ++i) {
             std::string result = remove_leading_trailing_whitespace(results[i]);
+            // remove every double quote from the predicted text
+            result.erase(std::remove(result.begin(), result.end(), '"'), result.end());
             std::string transcript = csv_data[i][1];
             std::string id = csv_data[i][2];
             std::string profile_id = csv_data[i][3];
@@ -1214,8 +1217,7 @@ int main(int argc, char ** argv) {
             }
         }
         fout << "]";
-
-        fout.close(); // Close the file after writing
+        fout.close();
     }
 
     whisper_print_timings(ctx);

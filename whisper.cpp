@@ -4482,7 +4482,7 @@ static const std::vector<std::string> non_speech_tokens = {
 static const std::vector<std::string> iara_tokens = {
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     "%", "&", "$", "€", ".", ",", "?", "¿", "!", "¡",
-    "-", "..."
+    "-", "...", ".\"", ".\'"
 };
 
 
@@ -4571,19 +4571,6 @@ static void whisper_process_logits(
             params.logits_filter_callback(&ctx, &state, tokens_cur.data(), tokens_cur.size(), logits.data(), params.logits_filter_callback_user_data);
         }
 
-        // suppress iara_tokens
-        if (params.suppress_tokens) {
-            for (const std::string & token : iara_tokens) {
-                const std::string suppress_tokens[] = {token, " " + token};
-                for (const std::string & suppress_token : suppress_tokens) {
-                    if (vocab.token_to_id.find(suppress_token) != vocab.token_to_id.end()) {
-                        logits[vocab.token_to_id.at(suppress_token)] = -INFINITY;
-                    }
-                }
-            }
-            // note that we only forcefully suppress single numeral tokens -- for now, we'll trust the fine-tuning will take care of the rest
-        }
-
         // suppress non-speech tokens
         // ref: https://github.com/openai/whisper/blob/7858aa9c08d98f75575035ecd6481f462d66ca27/whisper/tokenizer.py#L224-L253
         if (params.suppress_non_speech_tokens) {
@@ -4603,6 +4590,19 @@ static void whisper_process_logits(
             if (vocab.token_to_id.find(" '") != vocab.token_to_id.end()) {
                 logits[vocab.token_to_id.at(" '")] = -INFINITY;
             }
+        }
+
+        // suppress iara_tokens
+        if (params.suppress_tokens) {
+            for (const std::string & token : iara_tokens) {
+                const std::string suppress_tokens[] = {token, " " + token};
+                for (const std::string & suppress_token : suppress_tokens) {
+                    if (vocab.token_to_id.find(suppress_token) != vocab.token_to_id.end()) {
+                        logits[vocab.token_to_id.at(suppress_token)] = -INFINITY;
+                    }
+                }
+            }
+            // note that we only forcefully suppress single numeral tokens -- for now, we'll trust the fine-tuning will take care of the rest
         }
 
         // timestamps have to appear in pairs, except directly before EOT; mask logits accordingly
