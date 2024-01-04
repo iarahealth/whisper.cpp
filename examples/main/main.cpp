@@ -969,15 +969,15 @@ int main(int argc, char ** argv) {
     // initialize openvino encoder. this has no effect on whisper.cpp builds that don't have OpenVINO configured
     whisper_ctx_init_openvino_encoder(ctx, nullptr, params.openvino_encode_device.c_str(), nullptr);
 
-    std::vector<std::string> results;
-
     std::vector<std::vector<std::string>> csv_data;
+    // we need to use a map to store the result in the correct order to compare with the ground truth
+    std::map<std::string, std::vector<std::string>> csv_dict;
     if (params.csv_file != "") {
         fprintf(stderr, "%s: csv file: %s\n", __func__, params.csv_file.c_str());
         csv_data = read_csv(params.csv_file.c_str());
-        // [wav_filename, transcript, id, profile_id]
+        // make a dictionary of wav_filename -> transcript, id, profile_id, result
         for (const auto &element : csv_data) {
-            std::cout << element[0] << " ";
+            csv_dict[element[0]] = {element[1], element[2], element[3], ""};
             params.fname_inp.push_back(element[0]);
         }
     }
@@ -985,11 +985,12 @@ int main(int argc, char ** argv) {
     for (int f = 0; f < (int) params.fname_inp.size(); ++f) {
         bool convert_to_wav = false;
 
-        // If fname_inp ends with .ogg, convert it to WAV using ffmpeg
-        // There's probably a better way to do this, but ffmpeg is simple and fast anyways
+        // if fname_inp ends with .ogg, convert it to WAV using ffmpeg
+        // there's probably a better way to do this, but ffmpeg is simple and fast anyways
         auto fname_inp_tmp = params.fname_inp[f];
+        // print values from csv_dict
         if (fname_inp_tmp.size() > 4 && fname_inp_tmp.substr(fname_inp_tmp.size() - 4) == ".ogg") {
-            // Replace .ogg with .wav
+            // replace .ogg with .wav
             const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
             const std::string cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
             if (system(cmd.c_str()) != 0) {
@@ -1011,7 +1012,7 @@ int main(int argc, char ** argv) {
             continue;
         }
 
-        // Remove the WAV file if it was converted from an OGG file
+        // remove the WAV file if it was converted from an OGG file -- we do not need it anymore
         if (convert_to_wav) {
             const std::string cmd = "rm -f " + fname_inp;
             if (system(cmd.c_str()) != 0) {
@@ -1133,8 +1134,10 @@ int main(int argc, char ** argv) {
             }
         }
 
-        std::string text = join_segments(ctx);
-        results.push_back(text);
+        if (params.csv_file != "") {
+            std::string text = join_segments(ctx);
+            csv_dict[fname_inp_tmp][3] = text;
+        }
 
         // output stuff
         {
@@ -1197,20 +1200,22 @@ int main(int argc, char ** argv) {
             return false;
         }
         fout << "[\n";
-        for (int i = 0; i < static_cast<int>(results.size()); ++i) {
-            std::string result = remove_leading_trailing_whitespace(results[i]);
-            // remove every double quote from the predicted text
-            result.erase(std::remove(result.begin(), result.end(), '"'), result.end());
-            std::string transcript = csv_data[i][1];
-            std::string id = csv_data[i][2];
-            std::string profile_id = csv_data[i][3];
+
+        // fout the values of csv_dict to the file
+        for (const auto &element : csv_dict) {
+            std::string wav_filename = element.first;
+            std::vector<std::string> csv_data = element.second;
+            std::string transcript = csv_data[0];
+            std::string id = csv_data[1];
+            std::string profile_id = csv_data[2];
+            std::string result = csv_data[3];
 
             fout << "    {\n";
             fout << "        \"prd\": \"" << result << "\",\n";
             fout << "        \"tgt\": \"" << transcript << "\",\n";
             fout << "        \"id\": \"" << id << "\",\n";
             fout << "        \"profile_id\": \"" << profile_id << "\"\n";
-            if (i == static_cast<int>(results.size()) - 1) {
+            if (wav_filename == csv_dict.rbegin()->first) {
                 fout << "    }\n";
             } else {
                 fout << "    },\n";
