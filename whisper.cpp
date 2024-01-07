@@ -4487,13 +4487,6 @@ static const std::vector<std::string> non_speech_tokens = {
 };
 
 
-static const std::vector<std::string> iara_tokens = {
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-    "%", "&", "$", "€", ".", ",", "?", "¿", "!", "¡",
-    "-", "...", ".\"", ".\'"
-};
-
-
 // process the logits for the selected decoder
 // - applies logit filters
 // - computes logprobs and probs
@@ -4588,7 +4581,6 @@ static void whisper_process_logits(
 
         // suppress non-speech tokens
         // ref: https://github.com/openai/whisper/blob/7858aa9c08d98f75575035ecd6481f462d66ca27/whisper/tokenizer.py#L224-L253
-        /*
         if (params.suppress_non_speech_tokens) {
             for (const std::string & token : non_speech_tokens) {
                 const std::string suppress_tokens[] = {token, " " + token};
@@ -4607,22 +4599,6 @@ static void whisper_process_logits(
                 logits[vocab.token_to_id.at(" '")] = -INFINITY;
             }
         }
-        */
-
-        /*
-        // suppress iara_tokens
-        if (params.suppress_tokens) {
-            for (const std::string & token : iara_tokens) {
-                const std::string suppress_tokens[] = {token, " " + token};
-                for (const std::string & suppress_token : suppress_tokens) {
-                    if (vocab.token_to_id.find(suppress_token) != vocab.token_to_id.end()) {
-                        logits[vocab.token_to_id.at(suppress_token)] = -INFINITY;
-                    }
-                }
-            }
-            // note that we only forcefully suppress single numeral tokens -- for now, we'll trust the fine-tuning will take care of the rest
-        }
-        */
 
         // timestamps have to appear in pairs, except directly before EOT; mask logits accordingly
         // https://github.com/openai/whisper/blob/0b1ba3d46ebf7fe6f953acfd8cad62a4f851b49f/whisper/decoding.py#L414-L424
@@ -4691,6 +4667,7 @@ static void whisper_process_logits(
         {
             // logsumexp over timestamps
             float timestamp_logprob = -INFINITY;
+
             {
                 float logsumexp = 0.0f;
                 const float logprob_max = *std::max_element(logprobs.begin() + vocab.token_beg, logprobs.end());

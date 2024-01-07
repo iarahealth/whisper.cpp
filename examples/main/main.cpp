@@ -71,6 +71,7 @@ struct whisper_params {
     float word_thold    =  0.01f;
     float entropy_thold =  2.40f;
     float logprob_thold = -1.00f;
+    float length_penalty = -1.00f;
 
     bool speed_up        = false;
     bool debug_mode      = false;
@@ -144,6 +145,7 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (arg == "-wt"   || arg == "--word-thold")      { params.word_thold      = std::stof(argv[++i]); }
         else if (arg == "-et"   || arg == "--entropy-thold")   { params.entropy_thold   = std::stof(argv[++i]); }
         else if (arg == "-lpt"  || arg == "--logprob-thold")   { params.logprob_thold   = std::stof(argv[++i]); }
+        else if (arg == "-lp"   || arg == "--length-penalty")  { params.length_penalty = std::stof(argv[++i]); }
         // else if (arg == "-su"   || arg == "--speed-up")        { params.speed_up        = true; }
         else if (arg == "-debug"|| arg == "--debug-mode")      { params.debug_mode      = true; }
         else if (arg == "-tr"   || arg == "--translate")       { params.translate       = true; }
@@ -205,6 +207,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -wt N,     --word-thold N      [%-7.2f] word timestamp probability threshold\n",         params.word_thold);
     fprintf(stderr, "  -et N,     --entropy-thold N   [%-7.2f] entropy threshold for decoder fail\n",           params.entropy_thold);
     fprintf(stderr, "  -lpt N,    --logprob-thold N   [%-7.2f] log probability threshold for decoder fail\n",   params.logprob_thold);
+    fprintf(stderr, "  -lp N,     --length-penalty N  [%-7.2f] exponential penalty applied to the length during beam search\n",   params.length_penalty);
     // fprintf(stderr, "  -su,       --speed-up          [%-7s] speed up audio by x2 (reduced accuracy)\n",        params.speed_up ? "true" : "false");
     fprintf(stderr, "  -debug,    --debug-mode        [%-7s] enable debug mode (eg. dump log_mel)\n",           params.debug_mode ? "true" : "false");
     fprintf(stderr, "  -tr,       --translate         [%-7s] translate from source language to english\n",      params.translate ? "true" : "false");
@@ -225,7 +228,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -ps,       --print-special     [%-7s] print special tokens\n",                           params.print_special ? "true" : "false");
     fprintf(stderr, "  -pc,       --print-colors      [%-7s] print colors\n",                                   params.print_colors ? "true" : "false");
     fprintf(stderr, "  -pp,       --print-progress    [%-7s] print progress\n",                                 params.print_progress ? "true" : "false");
-    fprintf(stderr, "  -nt,       --no-timestamps     [%-7s] do not print timestamps\n",                        params.no_timestamps ? "true" : "false");
+    fprintf(stderr, "  -nt,       --no-timestamps     [%-7s] do not compute timestamps\n",                        params.no_timestamps ? "true" : "false");
     fprintf(stderr, "  -l LANG,   --language LANG     [%-7s] spoken language ('auto' for auto-detect)\n",       params.language.c_str());
     fprintf(stderr, "  -dl,       --detect-language   [%-7s] exit after automatically detecting language\n",    params.detect_language ? "true" : "false");
     fprintf(stderr, "  -st,       --suppress-tokens   [%-7s] suppress iara-specific tokens\n",                  params.suppress_tokens ? "true" : "false");
@@ -1040,12 +1043,13 @@ int main(int argc, char ** argv) {
             if (params.detect_language) {
                 params.language = "auto";
             }
-            fprintf(stderr, "%s: processing '%s' (%d samples, %.1f sec), %d threads, %d processors, %d beams + best of %d, lang = %s, task = %s, %stimestamps = %d ...\n",
+            fprintf(stderr, "%s: processing '%s' (%d samples, %.1f sec), %d threads, %d processors, %d beams + best of %d, %.1f length penalty, lang = %s, task = %s, suppress_tokens = %d, %stimestamps = %d ...\n",
                     __func__, fname_inp.c_str(), int(pcmf32.size()), float(pcmf32.size())/WHISPER_SAMPLE_RATE,
-                    params.n_threads, params.n_processors, params.beam_size, params.best_of,
+                    params.n_threads, params.n_processors, params.beam_size, params.best_of, params.length_penalty,
                     params.language.c_str(),
                     params.translate ? "translate" : "transcribe",
                     params.tinydiarize ? "tdrz = 1, " : "",
+                    params.suppress_tokens ? 0 : 1,
                     params.no_timestamps ? 0 : 1);
 
             fprintf(stderr, "\n");
@@ -1060,6 +1064,8 @@ int main(int argc, char ** argv) {
             wparams.print_realtime   = false;
             wparams.print_progress   = params.print_progress;
             wparams.print_timestamps = !params.no_timestamps;
+            wparams.no_timestamps    = params.no_timestamps;
+            wparams.length_penalty   = params.length_penalty;
             wparams.print_special    = params.print_special;
             wparams.translate        = params.translate;
             wparams.language         = params.language.c_str();
@@ -1080,7 +1086,7 @@ int main(int argc, char ** argv) {
             wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
 
             wparams.initial_prompt   = params.prompt.c_str();
-            // wparams.suppress_non_speech_tokens = params.suppress_tokens;
+            //wparams.suppress_non_speech_tokens = params.suppress_tokens;
             wparams.suppress_tokens = params.suppress_tokens;
 
             wparams.greedy.best_of        = params.best_of;
