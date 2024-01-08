@@ -1043,13 +1043,12 @@ int main(int argc, char ** argv) {
             if (params.detect_language) {
                 params.language = "auto";
             }
-            fprintf(stderr, "%s: processing '%s' (%d samples, %.1f sec), %d threads, %d processors, %d beams + best of %d, %.1f length penalty, lang = %s, task = %s, suppress_tokens = %d, %stimestamps = %d ...\n",
+            fprintf(stderr, "%s: processing '%s' (%d samples, %.1f sec), %d threads, %d processors, %d beams + best of %d, %.1f length penalty, lang = %s, task = %s, %stimestamps = %d ...\n",
                     __func__, fname_inp.c_str(), int(pcmf32.size()), float(pcmf32.size())/WHISPER_SAMPLE_RATE,
                     params.n_threads, params.n_processors, params.beam_size, params.best_of, params.length_penalty,
                     params.language.c_str(),
                     params.translate ? "translate" : "transcribe",
                     params.tinydiarize ? "tdrz = 1, " : "",
-                    params.suppress_tokens ? 0 : 1,
                     params.no_timestamps ? 0 : 1);
 
             fprintf(stderr, "\n");

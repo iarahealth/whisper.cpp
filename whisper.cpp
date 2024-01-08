@@ -4572,13 +4572,6 @@ static void whisper_process_logits(
             params.logits_filter_callback(&ctx, &state, tokens_cur.data(), tokens_cur.size(), logits.data(), params.logits_filter_callback_user_data);
         }
 
-
-        if (params.suppress_tokens) {
-            for (size_t i = 0; i < SUPPRESS_TOKENS_SIZE; ++i) {
-                logits[SUPPRESS_TOKENS[i]] = -INFINITY;
-            }
-        }
-
         // suppress non-speech tokens
         // ref: https://github.com/openai/whisper/blob/7858aa9c08d98f75575035ecd6481f462d66ca27/whisper/tokenizer.py#L224-L253
         if (params.suppress_non_speech_tokens) {
@@ -4597,6 +4590,12 @@ static void whisper_process_logits(
             }
             if (vocab.token_to_id.find(" '") != vocab.token_to_id.end()) {
                 logits[vocab.token_to_id.at(" '")] = -INFINITY;
+            }
+        }
+
+        if (params.suppress_tokens) {
+            for (size_t i = 0; i < SUPPRESS_TOKENS_SIZE; ++i) {
+                logits[SUPPRESS_TOKENS[i]] = -INFINITY;
             }
         }
 
