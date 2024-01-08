@@ -105,10 +105,10 @@ dir_tokenizer = dir_model
 fname_out = dir_out / "ggml-model.bin"
 
 tokens = json.load(open(dir_tokenizer / "vocab.json", "r", encoding="utf8"))
-added_tokens = json.load(
-    open(dir_tokenizer / "added_tokens.json", "r", encoding="utf8")
-)
-tokens.update(added_tokens)
+#added_tokens = json.load(
+#    open(dir_tokenizer / "added_tokens.json", "r", encoding="utf8")
+#)
+#tokens.update(added_tokens)
 
 # use 16-bit or 32-bit floats
 use_f16 = True
