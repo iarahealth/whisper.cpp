@@ -625,8 +625,11 @@ extern "C" {
 
 
 static const int SUPPRESS_TOKENS[] = {
+    0,
     3,
     4,
+    11,
+    13,
     15,
     16,
     17,
@@ -637,6 +640,8 @@ static const int SUPPRESS_TOKENS[] = {
     22,
     23,
     24,
+    26,
+    30,
     502,
     568,
     628,
@@ -895,6 +900,7 @@ static const int SUPPRESS_TOKENS[] = {
     24624,
     24733,
     25026,
+    25073,
     25082,
     25137,
     25276,

@@ -1085,7 +1085,7 @@ int main(int argc, char ** argv) {
             wparams.tdrz_enable      = params.tinydiarize; // [TDRZ]
 
             wparams.initial_prompt   = params.prompt.c_str();
-            //wparams.suppress_non_speech_tokens = params.suppress_tokens;
+            wparams.suppress_non_speech_tokens = params.suppress_tokens;
             wparams.suppress_tokens = params.suppress_tokens;
 
             wparams.greedy.best_of        = params.best_of;
