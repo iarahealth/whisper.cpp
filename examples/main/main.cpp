@@ -532,6 +532,22 @@ bool output_score(struct whisper_context * ctx, const char * fname, const whispe
     return true;
 }
 
+std::vector<std::vector<std::pair<std::string, float>>> get_score_vector(struct whisper_context * ctx, const whisper_params & /*params*/, std::vector<std::vector<float>> /*pcmf32s*/) {
+    std::vector<std::vector<std::pair<std::string, float>>> scores;
+    const int n_segments = whisper_full_n_segments(ctx);
+    for (int i = 0; i < n_segments; ++i) {
+        std::vector<std::pair<std::string, float>> segment_scores;
+        const int n_tokens = whisper_full_n_tokens(ctx, i);
+        for (int j = 0; j < n_tokens; j++) {
+            auto token = whisper_full_get_token_text(ctx, i, j);
+            auto probability = whisper_full_get_token_p(ctx, i, j);
+            segment_scores.push_back(std::make_pair(token, probability));
+        }
+        scores.push_back(segment_scores);
+    }
+    return scores;
+}
+
 bool output_json(
              struct whisper_context * ctx,
                          const char * fname,
@@ -894,7 +910,7 @@ std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
         std::getline(ss, wav_filesize, ',');
         std::getline(ss, transcript, ',');
 
-        std::vector<std::string> row = {wav_filename, transcript, id, profile_id};
+        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, ""};
         csv_data.push_back(row);
     }
 
@@ -975,12 +991,17 @@ int main(int argc, char ** argv) {
     std::vector<std::vector<std::string>> csv_data;
     // we need to use a map to store the result in the correct order to compare with the ground truth
     std::map<std::string, std::vector<std::string>> csv_dict;
+    // make a dict for the scores
+    std::map<std::string, std::vector<std::vector<std::pair<std::string, float>>> > csv_scores;
     if (params.csv_file != "") {
         fprintf(stderr, "%s: csv file: %s\n", __func__, params.csv_file.c_str());
         csv_data = read_csv(params.csv_file.c_str());
-        // make a dictionary of wav_filename -> transcript, id, profile_id, result
+        // make a dictionary of wav_filename -> transcript, id, profile_id, result, confidence_score
         for (const auto &element : csv_data) {
+            // Make an empty vector to store the result and confidence score
+            std::vector<std::vector<std::pair<std::string, float>>> scores = {};
             csv_dict[element[0]] = {element[1], element[2], element[3], ""};
+            csv_scores[element[0]] = scores;
             params.fname_inp.push_back(element[0]);
         }
     }
@@ -1142,6 +1163,17 @@ int main(int argc, char ** argv) {
         if (params.csv_file != "") {
             std::string text = join_segments(ctx);
             csv_dict[fname_inp_tmp][3] = text;
+            std::vector<std::vector<std::pair<std::string, float>>> scores = get_score_vector(ctx, params, pcmf32s);
+            // Add the confidence score vector to the csv_dict
+            csv_scores[fname_inp_tmp] = scores;
+            // print the score of each token
+            for (int i = 0; i < (int) scores.size(); i++) {
+                for (int j = 0; j < (int) scores[i].size(); j++) {
+                    std::string token = scores[i][j].first;
+                    float score = scores[i][j].second;
+                    fprintf(stderr, "Token: %s, Score: %f\n", token.c_str(), score);
+                }
+            }
         }
 
         // output stuff
@@ -1214,12 +1246,33 @@ int main(int argc, char ** argv) {
             std::string id = csv_data[1];
             std::string profile_id = csv_data[2];
             std::string result = csv_data[3];
+            std::vector<std::vector<std::pair<std::string, float>>> scores = csv_scores[wav_filename];
 
             fout << "    {\n";
             fout << "        \"prd\": \"" << result << "\",\n";
             fout << "        \"tgt\": \"" << transcript << "\",\n";
             fout << "        \"id\": \"" << id << "\",\n";
-            fout << "        \"profile_id\": \"" << profile_id << "\"\n";
+            fout << "        \"profile_id\": \"" << profile_id << "\",\n";
+            fout << "        \"confidence_scores\": [\n";
+
+            // Printing confidence scores
+            for (size_t i = 0; i < scores.size(); ++i) {
+                fout << "            {\n";
+                for (size_t j = 0; j < scores[i].size(); ++j) {
+                    fout << "                \"" << scores[i][j].first << "\": " << scores[i][j].second;
+                    if (j < scores[i].size() - 1) {
+                        fout << ",\n";
+                    } else {
+                        fout << "\n";
+                    }
+                }
+                if (i < scores.size() - 1) {
+                    fout << "            },\n";
+                } else {
+                    fout << "            }\n";
+                }
+            }
+            fout << "        ]\n";
             if (wav_filename == csv_dict.rbegin()->first) {
                 fout << "    }\n";
             } else {
