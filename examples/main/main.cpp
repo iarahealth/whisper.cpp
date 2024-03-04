@@ -1167,13 +1167,14 @@ int main(int argc, char ** argv) {
             // Add the confidence score vector to the csv_dict
             csv_scores[fname_inp_tmp] = scores;
             // print the score of each token
+            /*
             for (int i = 0; i < (int) scores.size(); i++) {
                 for (int j = 0; j < (int) scores[i].size(); j++) {
                     std::string token = scores[i][j].first;
                     float score = scores[i][j].second;
-                    fprintf(stderr, "Token: %s, Score: %f\n", token.c_str(), score);
                 }
             }
+            */
         }
 
         // output stuff
@@ -1256,10 +1257,15 @@ int main(int argc, char ** argv) {
             fout << "        \"confidence_scores\": [\n";
 
             // Printing confidence scores
-            for (size_t i = 0; i < scores.size(); ++i) {
+            for (size_t i = 0; i < (int) scores.size(); i++) {
                 fout << "            {\n";
-                for (size_t j = 0; j < scores[i].size(); ++j) {
-                    fout << "                \"" << scores[i][j].first << "\": " << scores[i][j].second;
+                for (size_t j = 0; j < (int) scores[i].size(); j++) {
+                    std::string token = scores[i][j].first;
+                    float score = scores[i][j].second;
+                    int id = j;
+                    // Print the id with the token and the score as a dict
+                    fout << "                \"" << id << "\": ";
+                    fout << "{\"token\": \"" << token.c_str() << "\", \"score\": " << score << "}";
                     if (j < scores[i].size() - 1) {
                         fout << ",\n";
                     } else {
