@@ -1000,7 +1000,7 @@ int main(int argc, char ** argv) {
         for (const auto &element : csv_data) {
             // Make an empty vector to store the result and confidence score
             std::vector<std::vector<std::pair<std::string, float>>> scores = {};
-            csv_dict[element[0]] = {element[1], element[2], element[3], ""};
+            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], ""};
             csv_scores[element[0]] = scores;
             params.fname_inp.push_back(element[0]);
         }
@@ -1162,7 +1162,7 @@ int main(int argc, char ** argv) {
 
         if (params.csv_file != "") {
             std::string text = join_segments(ctx);
-            csv_dict[fname_inp_tmp][3] = text;
+            csv_dict[fname_inp_tmp][4] = text;
             std::vector<std::vector<std::pair<std::string, float>>> scores = get_score_vector(ctx, params, pcmf32s);
             // Add the confidence score vector to the csv_dict
             csv_scores[fname_inp_tmp] = scores;
@@ -1246,7 +1246,8 @@ int main(int argc, char ** argv) {
             std::string transcript = csv_data[0];
             std::string id = csv_data[1];
             std::string profile_id = csv_data[2];
-            std::string result = csv_data[3];
+            std::string path = csv_data[3];
+            std::string result = csv_data[4];
             std::vector<std::vector<std::pair<std::string, float>>> scores = csv_scores[wav_filename];
 
             fout << "    {\n";
@@ -1254,6 +1255,7 @@ int main(int argc, char ** argv) {
             fout << "        \"tgt\": \"" << transcript << "\",\n";
             fout << "        \"id\": \"" << id << "\",\n";
             fout << "        \"profile_id\": \"" << profile_id << "\",\n";
+            fout << "        \"path\": \"" << path << "\",\n";
             fout << "        \"confidence_scores\": [\n";
 
             // Printing confidence scores
