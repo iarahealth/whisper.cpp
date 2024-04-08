@@ -68,6 +68,7 @@ bool whisper_params_parse(int argc, char ** argv, whisper_params & params) {
         else if (arg == "-kc"   || arg == "--keep-context")  { params.no_context    = false; }
         else if (arg == "-l"    || arg == "--language")      { params.language      = argv[++i]; }
         else if (arg == "-m"    || arg == "--model")         { params.model         = argv[++i]; }
+        else if (arg == "-nt"   || arg == "--no-timestamps") { params.no_timestamps   = true; }
         else if (arg == "-f"    || arg == "--file")          { params.fname_out     = argv[++i]; }
         else if (arg == "-tdrz" || arg == "--tinydiarize")   { params.tinydiarize   = true; }
         else if (arg == "-sa"   || arg == "--save-audio")    { params.save_audio    = true; }
@@ -106,6 +107,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -l LANG,  --language LANG [%-7s] spoken language\n",                                params.language.c_str());
     fprintf(stderr, "  -m FNAME, --model FNAME   [%-7s] model path\n",                                     params.model.c_str());
     fprintf(stderr, "  -f FNAME, --file FNAME    [%-7s] text output file name\n",                          params.fname_out.c_str());
+    fprintf(stderr, "  -nt,      --no-timestamps [%-7s] do not compute timestamps\n",                      params.no_timestamps ? "true" : "false");
     fprintf(stderr, "  -tdrz,    --tinydiarize   [%-7s] enable tinydiarize (requires a tdrz model)\n",     params.tinydiarize ? "true" : "false");
     fprintf(stderr, "  -sa,      --save-audio    [%-7s] save the recorded audio to a file\n",              params.save_audio ? "true" : "false");
     fprintf(stderr, "  -ng,      --no-gpu        [%-7s] disable GPU inference\n",                          params.use_gpu ? "false" : "true");
@@ -131,7 +133,7 @@ int main(int argc, char ** argv) {
 
     const int n_new_line = !use_vad ? std::max(1, params.length_ms / params.step_ms - 1) : 1; // number of steps to print new line
 
-    params.no_timestamps  = !use_vad;
+    if (!params.no_timestamps) params.no_timestamps  = !use_vad;
     params.no_context    |= use_vad;
     params.max_tokens     = 0;
 
@@ -302,6 +304,7 @@ int main(int argc, char ** argv) {
             wparams.print_special    = params.print_special;
             wparams.print_realtime   = false;
             wparams.print_timestamps = !params.no_timestamps;
+            wparams.no_timestamps    = params.no_timestamps;
             wparams.translate        = params.translate;
             wparams.single_segment   = !use_vad;
             wparams.max_tokens       = params.max_tokens;
