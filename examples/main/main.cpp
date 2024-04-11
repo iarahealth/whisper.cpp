@@ -214,7 +214,7 @@ void whisper_print_usage(int /*argc*/, char ** argv, const whisper_params & para
     fprintf(stderr, "  -ps,       --print-special     [%-7s] print special tokens\n",                           params.print_special ? "true" : "false");
     fprintf(stderr, "  -pc,       --print-colors      [%-7s] print colors\n",                                   params.print_colors ? "true" : "false");
     fprintf(stderr, "  -pp,       --print-progress    [%-7s] print progress\n",                                 params.print_progress ? "true" : "false");
-    fprintf(stderr, "  -nt,       --no-timestamps     [%-7s] do not compute timestamps\n",                        params.no_timestamps ? "true" : "false");
+    fprintf(stderr, "  -nt,       --no-timestamps     [%-7s] do not compute timestamps\n",                      params.no_timestamps ? "true" : "false");
     fprintf(stderr, "  -l LANG,   --language LANG     [%-7s] spoken language ('auto' for auto-detect)\n",       params.language.c_str());
     fprintf(stderr, "  -dl,       --detect-language   [%-7s] exit after automatically detecting language\n",    params.detect_language ? "true" : "false");
     fprintf(stderr, "  -st,       --suppress-tokens   [%-7s] suppress iara-specific tokens\n",                  params.suppress_tokens ? "true" : "false");
@@ -935,6 +935,25 @@ bool output_lrc(struct whisper_context * ctx, const char * fname, const whisper_
 
 void cb_log_disable(enum ggml_log_level , const char * , void * ) { }
 
+double get_audio_duration(const std::string& audioFile) {
+    std::string cmd = "ffprobe -i " + audioFile + " -show_entries format=duration -v quiet -of csv=\"p=0\"";
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "Error: Could not run command." << std::endl;
+        return 0.0;
+    }
+
+    char buffer[128];
+    std::string result = "";
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != NULL)
+            result += buffer;
+    }
+    pclose(pipe);
+
+    return std::stod(result);
+}
+
 int main(int argc, char ** argv) {
     whisper_params params;
 
@@ -1021,9 +1040,20 @@ int main(int argc, char ** argv) {
         auto fname_inp_tmp = params.fname_inp[f];
         // print values from csv_dict
         if (fname_inp_tmp.size() > 4 && fname_inp_tmp.substr(fname_inp_tmp.size() - 4) == ".ogg") {
+            std::string cmd;
             // replace .ogg with .wav
             const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
-            const std::string cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
+            double duration = get_audio_duration(params.fname_inp[f]);
+            // if the audio duration is less than 1.2 seconds, add 0.8 seconds of silence to the start --
+            // empirically this showed better results for very short short audio files
+            if (duration < 1.2) {
+                fprintf(stderr, "% s: audio duration of %s is %.2f (< 1.2 seconds), adding a 0.8 seconds of silence to the start\n", __func__, fname_inp_tmp.c_str(), duration);
+                cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp +
+                      " -filter_complex \"aevalsrc=0:d=0.8[silence];[silence][0:a]concat=n=2:v=0:a=1[out]\" -map \"[out]\" -ar " +
+                      std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
+            } else {
+                cmd = "ffmpeg -loglevel quiet -y -i " + fname_inp_tmp + " -ar " + std::to_string(WHISPER_SAMPLE_RATE) + " -ac 1 " + fname_inp_wav;
+            }
             if (system(cmd.c_str()) != 0) {
                 fprintf(stderr, "%s: failed to convert '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
                 continue;
