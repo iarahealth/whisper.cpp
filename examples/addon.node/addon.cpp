@@ -271,7 +271,7 @@ int run(whisper_params &params, std::vector<std::vector<std::string>> &result) {
         result[i].emplace_back(text);
     }
 
-    whisper_print_timings(ctx);
+    // whisper_print_timings(ctx);
     whisper_free(ctx);
 
     return 0;
