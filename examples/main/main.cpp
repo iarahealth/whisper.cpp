@@ -868,17 +868,19 @@ std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
     std::string line;
     while (std::getline(csv, line)) {
         std::stringstream ss(line);
-        std::string wav_filename, id, profile_id, duration, wav_filesize, transcript;
+        std::string wav_filename, id, profile_id, duration, wav_filesize, transcript, language, region;
 
-        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript
+        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript,language,region
         std::getline(ss, wav_filename, ',');
         std::getline(ss, id, ',');
         std::getline(ss, profile_id, ',');
         std::getline(ss, duration, ',');
         std::getline(ss, wav_filesize, ',');
         std::getline(ss, transcript, ',');
+        std::getline(ss, language, ',');
+        std::getline(ss, region, ',');
 
-        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, ""};
+        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region};
         csv_data.push_back(row);
     }
 
@@ -1099,7 +1101,7 @@ int main(int argc, char ** argv) {
         for (const auto &element : csv_data) {
             // Make an empty vector to store the result and confidence score
             std::vector<std::vector<std::pair<std::string, float>>> scores = {};
-            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], ""};
+            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], "", element[5], element[6]};
             csv_scores[element[0]] = scores;
             params.fname_inp.push_back(element[0]);
         }
@@ -1400,6 +1402,8 @@ int main(int argc, char ** argv) {
             std::string profile_id = csv_data[2];
             std::string path = csv_data[3];
             std::string result = csv_data[4];
+            std::string language = csv_data[5];
+            std::string region = csv_data[6];
             std::vector<std::vector<std::pair<std::string, float>>> scores = csv_scores[wav_filename];
 
             fout << "    {\n";
@@ -1408,6 +1412,8 @@ int main(int argc, char ** argv) {
             fout << "        \"id\": \"" << id << "\",\n";
             fout << "        \"profile_id\": \"" << profile_id << "\",\n";
             fout << "        \"path\": \"" << path << "\",\n";
+            fout << "        \"language\": \"" << language << "\",\n";
+            fout << "        \"region\": \"" << region << "\",\n";
             fout << "        \"confidence_scores\": [\n";
 
             // Printing confidence scores
