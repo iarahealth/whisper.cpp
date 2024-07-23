@@ -868,9 +868,9 @@ std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
     std::string line;
     while (std::getline(csv, line)) {
         std::stringstream ss(line);
-        std::string wav_filename, id, profile_id, duration, wav_filesize, transcript, language, region;
+        std::string wav_filename, id, profile_id, duration, wav_filesize, transcript, language, region, evaluation_value, insertion_date;
 
-        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript,language,region
+        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript,language,region,evaluation_value,insertion_date
         std::getline(ss, wav_filename, ',');
         std::getline(ss, id, ',');
         std::getline(ss, profile_id, ',');
@@ -879,9 +879,12 @@ std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
         std::getline(ss, transcript, ',');
         std::getline(ss, language, ',');
         std::getline(ss, region, ',');
+        std::getline(ss, evaluation_value, ',');
+        std::getline(ss, insertion_date, ',');
 
-        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region};
+        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region, evaluation_value, insertion_date};
         csv_data.push_back(row);
+        std::cout << "Read row: " << wav_filename << ", " << transcript << ", " << id << ", " << profile_id << ", " << language << ", " << region << ", " << evaluation_value << ", " << insertion_date << std::endl;
     }
 
     return csv_data;
@@ -1101,7 +1104,7 @@ int main(int argc, char ** argv) {
         for (const auto &element : csv_data) {
             // Make an empty vector to store the result and confidence score
             std::vector<std::vector<std::pair<std::string, float>>> scores = {};
-            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], "", element[5], element[6]};
+            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], "", element[5], element[6], element[7], element[8]};
             csv_scores[element[0]] = scores;
             params.fname_inp.push_back(element[0]);
         }
@@ -1404,6 +1407,11 @@ int main(int argc, char ** argv) {
             std::string result = csv_data[4];
             std::string language = csv_data[5];
             std::string region = csv_data[6];
+            std::string evaluation_value = csv_data[7];
+            std::string insertion_date = csv_data[8];
+
+            std::cout << "Writing to file: " << wav_filename << ", " << transcript << ", " << id << ", " << profile_id << ", " << path << ", " << language << ", " << region << ", " << evaluation_value << ", " << insertion_date << std::endl;
+
             std::vector<std::vector<std::pair<std::string, float>>> scores = csv_scores[wav_filename];
 
             fout << "    {\n";
@@ -1414,6 +1422,8 @@ int main(int argc, char ** argv) {
             fout << "        \"path\": \"" << path << "\",\n";
             fout << "        \"language\": \"" << language << "\",\n";
             fout << "        \"region\": \"" << region << "\",\n";
+            fout << "        \"evaluation_value\": \"" << evaluation_value << "\",\n";
+            fout << "        \"insertion_date\": \"" << insertion_date << "\",\n";
             fout << "        \"confidence_scores\": [\n";
 
             // Printing confidence scores
