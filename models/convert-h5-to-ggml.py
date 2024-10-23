@@ -92,6 +92,10 @@ encoder = json.load((dir_model / "vocab.json").open("r", encoding="utf8"))
 encoder_added = json.load((dir_model / "added_tokens.json").open("r", encoding="utf8"))
 hparams = json.load((dir_model / "config.json").open("r", encoding="utf8"))
 
+# Add this block to handle missing 'max_length'
+if "max_length" not in hparams or hparams["max_length"] is None:
+    hparams["max_length"] = hparams.get("max_target_positions", 448)
+
 model = WhisperForConditionalGeneration.from_pretrained(dir_model)
 
 # code.interact(local=locals())
@@ -105,10 +109,6 @@ dir_tokenizer = dir_model
 fname_out = dir_out / "ggml-model.bin"
 
 tokens = json.load(open(dir_tokenizer / "vocab.json", "r", encoding="utf8"))
-#added_tokens = json.load(
-#    open(dir_tokenizer / "added_tokens.json", "r", encoding="utf8")
-#)
-#tokens.update(added_tokens)
 
 # use 16-bit or 32-bit floats
 use_f16 = True
