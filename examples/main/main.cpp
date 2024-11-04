@@ -1133,14 +1133,12 @@ int main(int argc, char ** argv) {
     for (int f = 0; f < (int) params.fname_inp.size(); ++f) {
         bool convert_to_wav = false;
 
-        // if fname_inp ends with .ogg, convert it to WAV using ffmpeg
-        // there's probably a better way to do this, but ffmpeg is simple and fast anyways
+        // convert file to wav 16khz mono using ffmpeg
         auto fname_inp_tmp = params.fname_inp[f];
         // print values from csv_dict
-        if (fname_inp_tmp.size() > 4 && fname_inp_tmp.substr(fname_inp_tmp.size() - 4) == ".ogg") {
+        if (fname_inp_tmp.size() > 4) {
             std::string cmd;
-            // replace .ogg with .wav
-            const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + ".wav";
+            const std::string fname_inp_wav = fname_inp_tmp.substr(0, fname_inp_tmp.size() - 4) + "_converted.wav";
             double duration = get_audio_duration(params.fname_inp[f]);
             // if the audio duration is less than 1.2 seconds, add 0.8 seconds of silence to the start --
             // empirically this showed better results for very short short audio files
@@ -1154,7 +1152,7 @@ int main(int argc, char ** argv) {
             }
             if (system(cmd.c_str()) != 0) {
                 fprintf(stderr, "%s: failed to convert '%s' to WAV using ffmpeg\n", __func__, fname_inp_tmp.c_str());
-                continue;
+                return 5;
             }
             params.fname_inp[f] = fname_inp_wav;
             convert_to_wav = true;
