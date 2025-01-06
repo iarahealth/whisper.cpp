@@ -851,41 +851,41 @@ bool output_wts(struct whisper_context * ctx, const char * fname, const char * f
     return true;
 }
 
-std::vector<std::vector<std::string>> read_csv(const std::string &csv_file) {
-    // Read a csv file and return a vector where each element is a vector of [wav_filename, transcript, id, profile_id]
-    std::vector<std::vector<std::string>> csv_data;
-    std::ifstream csv(csv_file);
-    if (!csv.is_open()) {
-        fprintf(stderr, "%s: failed to open '%s' for reading\n", __func__, csv_file.c_str());
-        return csv_data;
+std::vector<std::vector<std::string>> read_delimited_file(const std::string &file_path, char delimiter) {
+    // Read a delimited file (CSV or TSV) and return a vector where each element is a vector of values
+    std::vector<std::vector<std::string>> file_data;
+    std::ifstream file(file_path);
+    if (!file.is_open()) {
+        fprintf(stderr, "%s: failed to open '%s' for reading\n", __func__, file_path.c_str());
+        return file_data;
     }
 
     // Skip the header
     std::string header;
-    std::getline(csv, header);
+    std::getline(file, header);
 
     // Read each line and extract values
     std::string line;
-    while (std::getline(csv, line)) {
+    while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string wav_filename, id, profile_id, duration, wav_filesize, transcript, language, region, evaluation_value;
 
-        // Assuming the columns are in order: wav_filename,id,profile_id,duration,wav_filesize,transcript,language,region,evaluation_value
-        std::getline(ss, wav_filename, ',');
-        std::getline(ss, id, ',');
-        std::getline(ss, profile_id, ',');
-        std::getline(ss, duration, ',');
-        std::getline(ss, wav_filesize, ',');
-        std::getline(ss, transcript, ',');
-        std::getline(ss, language, ',');
-        std::getline(ss, region, ',');
-        std::getline(ss, evaluation_value, ',');
+        // Extract fields based on the specified delimiter
+        std::getline(ss, wav_filename, delimiter);
+        std::getline(ss, id, delimiter);
+        std::getline(ss, profile_id, delimiter);
+        std::getline(ss, duration, delimiter);
+        std::getline(ss, wav_filesize, delimiter);
+        std::getline(ss, transcript, delimiter);
+        std::getline(ss, language, delimiter);
+        std::getline(ss, region, delimiter);
+        std::getline(ss, evaluation_value, delimiter);
 
         std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region, evaluation_value};
-        csv_data.push_back(row);
+        file_data.push_back(row);
     }
 
-    return csv_data;
+    return file_data;
 }
 
 std::string remove_leading_trailing_whitespace(const std::string& input) {
@@ -1096,8 +1096,12 @@ int main(int argc, char ** argv) {
     // make a dict for the scores
     std::map<std::string, std::vector<std::vector<std::pair<std::string, float>>> > csv_scores;
     if (params.csv_file != "") {
-        fprintf(stderr, "%s: csv file: %s\n", __func__, params.csv_file.c_str());
-        csv_data = read_csv(params.csv_file.c_str());
+        char delimiter = ',';
+        if (params.csv_file.substr(params.csv_file.find_last_of(".") + 1) == "tsv") {
+            delimiter = '\t';
+        }
+        fprintf(stderr, "%s: file: %s\n", __func__, params.csv_file.c_str());
+        csv_data = read_delimited_file(params.csv_file.c_str(), delimiter);
         // make a dictionary of wav_filename -> transcript, id, profile_id, result, confidence_score
         for (const auto &element : csv_data) {
             // Make an empty vector to store the result and confidence score
