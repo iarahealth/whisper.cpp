@@ -881,7 +881,7 @@ std::vector<std::vector<std::string>> read_delimited_file(const std::string &fil
         std::getline(ss, region, delimiter);
         std::getline(ss, evaluation_value, delimiter);
 
-        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region, evaluation_value};
+        std::vector<std::string> row = {wav_filename, transcript, id, profile_id, "", language, region, evaluation_value, duration};
         file_data.push_back(row);
     }
 
@@ -1106,7 +1106,7 @@ int main(int argc, char ** argv) {
         for (const auto &element : csv_data) {
             // Make an empty vector to store the result and confidence score
             std::vector<std::vector<std::pair<std::string, float>>> scores = {};
-            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], "", element[5], element[6], element[7]};
+            csv_dict[element[0]] = {element[1], element[2], element[3], element[0], "", element[5], element[6], element[7], element[8]};
             csv_scores[element[0]] = scores;
             params.fname_inp.push_back(element[0]);
         }
@@ -1408,6 +1408,7 @@ int main(int argc, char ** argv) {
             std::string language = csv_data[5];
             std::string region = csv_data[6];
             std::string evaluation_value = csv_data[7];
+            std::string duration = csv_data[8];
             std::vector<std::vector<std::pair<std::string, float>>> scores = csv_scores[wav_filename];
 
             fout << "    {\n";
@@ -1419,6 +1420,7 @@ int main(int argc, char ** argv) {
             fout << "        \"language\": \"" << language << "\",\n";
             fout << "        \"region\": \"" << region << "\",\n";
             fout << "        \"evaluation_value\": \"" << evaluation_value << "\",\n";
+            fout << "        \"duration\": \"" << duration << "\",\n";
             fout << "        \"confidence_scores\": [\n";
 
             // Printing confidence scores
