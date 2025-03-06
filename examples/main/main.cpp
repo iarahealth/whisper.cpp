@@ -1401,10 +1401,12 @@ int main(int argc, char ** argv) {
             std::string wav_filename = element.first;
             std::vector<std::string> csv_data = element.second;
             std::string transcript = csv_data[0];
+            std::replace(transcript.begin(), transcript.end(), '"', '\'');
             std::string id = csv_data[1];
             std::string profile_id = csv_data[2];
             std::string path = csv_data[3];
             std::string result = csv_data[4];
+            std::replace(result.begin(), result.end(), '"', '\'');
             std::string language = csv_data[5];
             std::string region = csv_data[6];
             std::string evaluation_value = csv_data[7];
@@ -1428,6 +1430,7 @@ int main(int argc, char ** argv) {
                 fout << "            {\n";
                 for (size_t j = 0; j < (int) scores[i].size(); j++) {
                     std::string token = scores[i][j].first;
+                    std::replace(token.begin(), token.end(), '"', '\'');
                     float score = scores[i][j].second;
                     int id = j;
                     // Print the id with the token and the score as a dict
